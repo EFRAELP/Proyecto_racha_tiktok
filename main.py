@@ -43,7 +43,11 @@ def _leer(path, default):
         _guardar(path, default)
         return default
     with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
+        try:
+            return json.load(f)
+        except json.JSONDecodeError:
+            _guardar(path, default)
+            return default
 
 
 def _guardar(path, data):
