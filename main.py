@@ -305,8 +305,8 @@ class App(tk.Tk):
             chk.pack(fill="x", padx=8, pady=2)
             check_vars[c] = var
 
-        cb_inner.update_idletasks()
-        cb_canvas.configure(scrollregion=cb_canvas.bbox("all"))
+        cb_inner.bind("<Configure>",
+                      lambda e: cb_canvas.configure(scrollregion=cb_canvas.bbox("all")))
 
         def confirmar():
             l = e_label.get().strip()
