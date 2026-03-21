@@ -1,7 +1,11 @@
 import subprocess
 import os
+import sys
 
-BASE = os.path.dirname(os.path.abspath(__file__))
+if getattr(sys, "frozen", False):
+    BASE = os.path.dirname(sys.executable)
+else:
+    BASE = os.path.dirname(os.path.abspath(__file__))
 
 
 def _run(cmd):

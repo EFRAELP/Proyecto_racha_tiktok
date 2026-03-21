@@ -141,6 +141,9 @@ def ejecutar_envios(plan, chrome_profile_path, profile_name, log_callback=None, 
 
         log("\n✅ Proceso de envío completado.")
 
+    except ModuleNotFoundError as e:
+        log(f"\n✗ Dependencia faltante: {e}")
+        log("  → Ejecuta en tu terminal: pip install -r requirements.txt")
     except Exception as e:
         log(f"\n✗ Error crítico en el bot: {e}")
 

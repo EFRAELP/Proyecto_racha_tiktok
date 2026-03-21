@@ -166,8 +166,11 @@ class App(tk.Tk):
         ttk.Label(f, text="Videos pendientes por contacto",
                   style="Header.TLabel").pack(pady=(14, 6), padx=14, anchor="w")
 
+        frame_tree = tk.Frame(f, bg=BG)
+        frame_tree.pack(fill="both", expand=True, padx=14, pady=4)
+
         cols = ("contacto", "pendientes", "ultimo_envio")
-        self.tree_dash = ttk.Treeview(f, columns=cols, show="headings", height=12)
+        self.tree_dash = ttk.Treeview(frame_tree, columns=cols, show="headings", height=12)
         self.tree_dash.heading("contacto", text="Contacto")
         self.tree_dash.heading("pendientes", text="Pendientes")
         self.tree_dash.heading("ultimo_envio", text="Último envío")
@@ -175,13 +178,11 @@ class App(tk.Tk):
         self.tree_dash.column("pendientes", width=100, anchor="center")
         self.tree_dash.column("ultimo_envio", width=200, anchor="center")
 
-        sb = ttk.Scrollbar(f, orient="vertical", command=self.tree_dash.yview)
+        sb = ttk.Scrollbar(frame_tree, orient="vertical", command=self.tree_dash.yview)
         self.tree_dash.configure(yscrollcommand=sb.set)
 
-        frame_tree = tk.Frame(f, bg=BG)
-        frame_tree.pack(fill="both", expand=True, padx=14, pady=4)
-        self.tree_dash.pack(in_=frame_tree, side="left", fill="both", expand=True)
-        sb.pack(in_=frame_tree, side="right", fill="y")
+        self.tree_dash.pack(side="left", fill="both", expand=True)
+        sb.pack(side="right", fill="y")
 
         ttk.Button(f, text="↺  Actualizar", style="Secondary.TButton",
                    command=self._refresh_dashboard).pack(pady=10)
@@ -223,8 +224,11 @@ class App(tk.Tk):
     def _build_biblioteca(self):
         f = self.tab_bib
 
+        tree_frame = tk.Frame(f, bg=BG)
+        tree_frame.pack(fill="both", expand=True, padx=14, pady=14)
+
         cols = ("label", "url", "para")
-        self.tree_bib = ttk.Treeview(f, columns=cols, show="headings")
+        self.tree_bib = ttk.Treeview(tree_frame, columns=cols, show="headings")
         self.tree_bib.heading("label", text="Nombre")
         self.tree_bib.heading("url", text="URL")
         self.tree_bib.heading("para", text="Destinatarios")
@@ -232,13 +236,11 @@ class App(tk.Tk):
         self.tree_bib.column("url", width=310)
         self.tree_bib.column("para", width=230)
 
-        sb = ttk.Scrollbar(f, orient="vertical", command=self.tree_bib.yview)
+        sb = ttk.Scrollbar(tree_frame, orient="vertical", command=self.tree_bib.yview)
         self.tree_bib.configure(yscrollcommand=sb.set)
 
-        tree_frame = tk.Frame(f, bg=BG)
-        tree_frame.pack(fill="both", expand=True, padx=14, pady=14)
-        self.tree_bib.pack(in_=tree_frame, side="left", fill="both", expand=True)
-        sb.pack(in_=tree_frame, side="right", fill="y")
+        self.tree_bib.pack(side="left", fill="both", expand=True)
+        sb.pack(side="right", fill="y")
 
         btn_frame = tk.Frame(f, bg=BG)
         btn_frame.pack(pady=(0, 12))
