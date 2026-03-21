@@ -256,10 +256,10 @@ class App(tk.Tk):
         """Ventana reutilizable para agregar/editar video. Retorna dict o None."""
         win = tk.Toplevel(self)
         win.title(title)
-        win.geometry("500x400")
+        win.geometry("500x420")
         win.configure(bg=BG)
         win.grab_set()
-        win.resizable(False, False)
+        win.resizable(False, True)
         result = {}
 
         def lbl(text):
@@ -278,21 +278,40 @@ class App(tk.Tk):
         e_url.insert(0, url)
         e_url.pack(padx=20, ipady=4)
 
-        lbl("Enviar a (Ctrl+clic para selección múltiple)")
+        lbl("Enviar a")
         contactos = _leer(CONTACTOS_PATH, [])
-        lb = tk.Listbox(win, selectmode="multiple", font=("Segoe UI", 9),
-                        bg=BG3, fg=FG, selectbackground=ACCENT,
-                        activestyle="none", relief="flat", height=7)
-        for i, c in enumerate(contactos):
-            lb.insert("end", c)
-            if para_actual and c in para_actual:
-                lb.selection_set(i)
-        lb.pack(padx=20, fill="both", expand=True, pady=(0, 4))
+
+        cb_outer = tk.Frame(win, bg=BG3, relief="flat")
+        cb_outer.pack(padx=20, fill="both", expand=True, pady=(0, 4))
+
+        cb_canvas = tk.Canvas(cb_outer, bg=BG3, highlightthickness=0)
+        cb_scroll = ttk.Scrollbar(cb_outer, orient="vertical", command=cb_canvas.yview)
+        cb_canvas.configure(yscrollcommand=cb_scroll.set)
+        cb_scroll.pack(side="right", fill="y")
+        cb_canvas.pack(side="left", fill="both", expand=True)
+
+        cb_inner = tk.Frame(cb_canvas, bg=BG3)
+        cb_canvas.create_window((0, 0), window=cb_inner, anchor="nw")
+
+        check_vars = {}
+        for c in contactos:
+            var = tk.BooleanVar(value=bool(para_actual and c in para_actual))
+            chk = tk.Checkbutton(
+                cb_inner, text=c, variable=var,
+                bg=BG3, fg=FG, selectcolor=BG2,
+                activebackground=BG3, activeforeground=FG,
+                font=("Segoe UI", 9), anchor="w"
+            )
+            chk.pack(fill="x", padx=8, pady=2)
+            check_vars[c] = var
+
+        cb_inner.update_idletasks()
+        cb_canvas.configure(scrollregion=cb_canvas.bbox("all"))
 
         def confirmar():
             l = e_label.get().strip()
             u = e_url.get().strip()
-            sel = [contactos[i] for i in lb.curselection()]
+            sel = [c for c, var in check_vars.items() if var.get()]
             if not l or not u or not sel:
                 messagebox.showwarning("Faltan datos",
                                        "Completa nombre, URL y al menos 1 destinatario.",
