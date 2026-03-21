@@ -53,63 +53,137 @@ def _send_to_user(driver, username, video_url, log):
     uname = username.lstrip("@")
 
     try:
-        # Ir directo al perfil — evita tener que buscar el botón "Nuevo mensaje"
-        driver.get(f"https://www.tiktok.com/@{uname}")
+        # Navegar directamente al video
+        driver.get(video_url)
         _delay(3, 5)
 
-        # Clickear el botón "Mensaje" del perfil
-        msg_btn = None
+        # Buscar el botón nativo de compartir (flecha)
+        share_btn = None
         for sel in [
-            '[data-e2e="message-button"]',
-            'button[aria-label*="Message"]',
-            'button[aria-label*="Mensaje"]',
+            '[data-e2e="share-arrow"]',
+            'button[aria-label*="Share"]',
+            'button[aria-label*="Compartir"]',
+            '[data-e2e="video-share-arrow"]',
         ]:
             try:
-                msg_btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, sel)))
+                share_btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, sel)))
                 break
             except Exception:
                 continue
 
-        if msg_btn is None:
-            for label in ["Message", "Mensaje", "Send message", "Enviar mensaje"]:
+        if share_btn is None:
+            log(f"  ✗ No encontré el botón de compartir en el video para {username}")
+            return False
+
+        share_btn.click()
+        _delay(1.5, 2.5)
+
+        # Buscar la opción "Enviar a amigos" / "Send to friends"
+        send_friends_btn = None
+        for label in ["Send to friends", "Enviar a amigos", "Enviar", "Send"]:
+            try:
+                send_friends_btn = short_wait.until(EC.element_to_be_clickable(
+                    (By.XPATH, f"//*[contains(text(), '{label}')]")
+                ))
+                break
+            except Exception:
+                continue
+
+        # Fallback por data-e2e
+        if send_friends_btn is None:
+            for sel in [
+                '[data-e2e="share-friend"]',
+                '[data-e2e="send-to-friends"]',
+            ]:
                 try:
-                    msg_btn = short_wait.until(EC.element_to_be_clickable(
-                        (By.XPATH, f"//button[contains(., '{label}')]")
-                    ))
+                    send_friends_btn = short_wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, sel)))
                     break
                 except Exception:
                     continue
 
-        if msg_btn is None:
-            log(f"  ✗ No encontré el botón 'Mensaje' en el perfil de {username}")
+        if send_friends_btn is None:
+            log(f"  ✗ No encontré la opción 'Enviar a amigos' para {username}")
             return False
 
-        msg_btn.click()
-        _delay(2, 3)
+        send_friends_btn.click()
+        _delay(1.5, 2.5)
 
-        # Escribir el URL en el input del chat
-        msg_box = None
+        # Buscar el campo de búsqueda dentro del modal
+        search_box = None
         for sel in [
-            '[contenteditable="true"][data-e2e="message-input"]',
-            '[contenteditable="true"][placeholder*="message"]',
-            '[contenteditable="true"][placeholder*="mensaje"]',
-            '[contenteditable="true"]',
+            'input[placeholder*="Buscar"]',
+            'input[placeholder*="Search"]',
+            '[data-e2e="search-user-input"]',
+            'input[type="search"]',
+            'input[type="text"]',
         ]:
             try:
-                msg_box = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, sel)))
+                search_box = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, sel)))
                 break
             except Exception:
                 continue
 
-        if msg_box is None:
-            log(f"  ✗ No encontré el campo de mensaje para {username}")
+        if search_box is None:
+            log(f"  ✗ No encontré el buscador en el modal para {username}")
             return False
 
-        msg_box.click()
-        _delay(0.4, 0.8)
-        msg_box.send_keys(video_url)
-        _delay(0.6, 1.2)
-        msg_box.send_keys(Keys.RETURN)
+        search_box.click()
+        _delay(0.3, 0.6)
+        search_box.send_keys(uname)
+        _delay(1.5, 2.5)
+
+        # Seleccionar el primer resultado que coincida con el username
+        contact_item = None
+        for sel in [
+            f'[data-e2e="search-result-user-item"]',
+            f'[data-e2e="friend-item"]',
+        ]:
+            try:
+                contact_item = short_wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, sel)))
+                break
+            except Exception:
+                continue
+
+        # Fallback: buscar por texto del username en la lista
+        if contact_item is None:
+            try:
+                contact_item = short_wait.until(EC.element_to_be_clickable(
+                    (By.XPATH, f"//*[contains(@class,'user') or contains(@class,'item')][.//*[contains(text(),'{uname}')]]")
+                ))
+            except Exception:
+                pass
+
+        if contact_item is None:
+            log(f"  ✗ No encontré a {username} en los resultados de búsqueda")
+            return False
+
+        contact_item.click()
+        _delay(0.8, 1.5)
+
+        # Confirmar el envío con el botón "Enviar" / "Send"
+        confirm_btn = None
+        for label in ["Enviar", "Send"]:
+            try:
+                confirm_btn = short_wait.until(EC.element_to_be_clickable(
+                    (By.XPATH, f"//button[contains(text(), '{label}')]")
+                ))
+                break
+            except Exception:
+                continue
+
+        if confirm_btn is None:
+            for sel in ['[data-e2e="send-btn"]', 'button[type="submit"]']:
+                try:
+                    confirm_btn = short_wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, sel)))
+                    break
+                except Exception:
+                    continue
+
+        if confirm_btn is None:
+            log(f"  ✗ No encontré el botón de confirmar envío para {username}")
+            return False
+
+        confirm_btn.click()
         _delay(1.5, 2.5)
         log(f"  ✓ Enviado a {username}")
         return True
