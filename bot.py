@@ -30,16 +30,10 @@ def _get_driver(chrome_profile_path, profile_name):
             opts.binary_location = path
             break
 
-    # Usar un directorio de perfil separado para el bot (no bloquea el browser principal)
-    bot_profile_dir = os.path.join(os.path.dirname(chrome_profile_path), "BotProfile")
-    os.makedirs(bot_profile_dir, exist_ok=True)
-
-    # Si existe una sesión de TikTok guardada en el perfil original, copiar las cookies
-    # (solo la primera vez; después el bot reutiliza su propia sesión)
-    _migrate_tiktok_cookies(chrome_profile_path, profile_name, bot_profile_dir)
-
-    opts.add_argument(f"--user-data-dir={bot_profile_dir}")
-    opts.add_argument("--profile-directory=Default")
+    # Usar el perfil real del usuario (donde ya tiene sesión iniciada)
+    # IMPORTANTE: Brave debe estar completamente cerrado antes de ejecutar el bot
+    opts.add_argument(f"--user-data-dir={chrome_profile_path}")
+    opts.add_argument(f"--profile-directory={profile_name}")
     opts.add_argument("--disable-notifications")
     opts.add_argument("--disable-blink-features=AutomationControlled")
     opts.add_experimental_option("excludeSwitches", ["enable-automation"])
@@ -51,29 +45,6 @@ def _get_driver(chrome_profile_path, profile_name):
     )
     driver.maximize_window()
     return driver
-
-
-def _migrate_tiktok_cookies(src_data_dir, profile_name, bot_profile_dir):
-    """
-    Copia el archivo de Cookies de TikTok del perfil principal al perfil del bot,
-    solo si el perfil del bot no tiene sesión propia aún.
-    """
-    import shutil
-    import sqlite3
-
-    bot_cookies_path = os.path.join(bot_profile_dir, "Default", "Cookies")
-    if os.path.exists(bot_cookies_path):
-        return  # El bot ya tiene su propia sesión
-
-    src_cookies_path = os.path.join(src_data_dir, profile_name, "Cookies")
-    if not os.path.exists(src_cookies_path):
-        return  # No hay cookies fuente
-
-    try:
-        os.makedirs(os.path.join(bot_profile_dir, "Default"), exist_ok=True)
-        shutil.copy2(src_cookies_path, bot_cookies_path)
-    except Exception:
-        pass  # Si falla, el usuario tendrá que hacer login manualmente en el bot
 
 
 _NEW_MSG_SELECTORS = [
@@ -216,7 +187,8 @@ def ejecutar_envios(plan, chrome_profile_path, profile_name, log_callback=None, 
     driver = None
 
     try:
-        log("Abriendo Chrome con tu perfil...")
+        log("⚠ Asegúrate de que Brave esté completamente cerrado antes de continuar.")
+        log("Abriendo Brave con tu perfil (sesión iniciada)...")
         driver = _get_driver(chrome_profile_path, profile_name)
 
         for item in plan:
