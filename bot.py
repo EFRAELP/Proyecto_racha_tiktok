@@ -47,131 +47,72 @@ def _get_driver(chrome_profile_path, profile_name):
     return driver
 
 
-_NEW_MSG_SELECTORS = [
-    '[data-e2e="new-message-button"]',
-    'button[aria-label*="New message"]',
-    'button[aria-label*="Compose"]',
-    'button[aria-label*="nuevo"]',
-    '[class*="newMessageBtn"]',
-    '[class*="compose"]',
-    # ícono de lápiz/edit dentro de la barra de mensajes
-    'div[class*="DM"] button',
-    'aside button[aria-label]',
-]
-
-_SEARCH_SELECTORS = [
-    'input[data-e2e="search-user-input"]',
-    'input[placeholder*="Search"]',
-    'input[placeholder*="Buscar"]',
-    'input[placeholder*="search"]',
-    '[role="dialog"] input',
-    '[role="combobox"]',
-]
-
-
-def _click_new_message(driver, wait, log):
-    """Intenta abrir el modal de nuevo mensaje. Devuelve True si lo logra."""
-    for sel in _NEW_MSG_SELECTORS:
-        try:
-            btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, sel)))
-            btn.click()
-            _delay(1.5, 2.5)
-            return True
-        except Exception:
-            continue
-
-    # Último recurso: buscar por texto visible
-    for label in ["New message", "Nuevo mensaje", "Compose", "Redactar"]:
-        try:
-            btn = driver.find_element(By.XPATH, f"//*[text()='{label}']")
-            btn.click()
-            _delay(1.5, 2.5)
-            return True
-        except Exception:
-            continue
-
-    log("  ⚠ No encontré el botón 'Nuevo mensaje'")
-    return False
-
-
 def _send_to_user(driver, username, video_url, log):
     wait = WebDriverWait(driver, 15)
     short_wait = WebDriverWait(driver, 5)
+    uname = username.lstrip("@")
 
     try:
-        driver.get("https://www.tiktok.com/messages")
+        # Ir directo al perfil — evita tener que buscar el botón "Nuevo mensaje"
+        driver.get(f"https://www.tiktok.com/@{uname}")
         _delay(3, 5)
 
-        # Abrir modal de nuevo mensaje
-        modal_open = _click_new_message(driver, wait, log)
-        if not modal_open:
-            log(f"  ✗ No pude abrir el modal de nuevo mensaje para {username}")
-            return False
-
-        # Buscar campo de búsqueda DENTRO del modal (debe ser interactuable)
-        search = None
-        for sel in _SEARCH_SELECTORS:
+        # Clickear el botón "Mensaje" del perfil
+        msg_btn = None
+        for sel in [
+            '[data-e2e="message-button"]',
+            'button[aria-label*="Message"]',
+            'button[aria-label*="Mensaje"]',
+        ]:
             try:
-                search = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, sel)))
+                msg_btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, sel)))
                 break
             except Exception:
                 continue
 
-        if search is None:
-            log(f"  ✗ No pude encontrar el campo de búsqueda para {username}")
+        if msg_btn is None:
+            for label in ["Message", "Mensaje", "Send message", "Enviar mensaje"]:
+                try:
+                    msg_btn = short_wait.until(EC.element_to_be_clickable(
+                        (By.XPATH, f"//button[contains(., '{label}')]")
+                    ))
+                    break
+                except Exception:
+                    continue
+
+        if msg_btn is None:
+            log(f"  ✗ No encontré el botón 'Mensaje' en el perfil de {username}")
             return False
 
-        search.click()
-        _delay(0.3, 0.6)
-        search.send_keys(username.lstrip("@"))
+        msg_btn.click()
         _delay(2, 3)
 
-        # Clic en el resultado que coincida con el username
-        uname_lower = username.lstrip("@").lower()
-        try:
-            # Buscar dentro del modal/lista de resultados
-            resultado = wait.until(EC.element_to_be_clickable((
-                By.XPATH,
-                f"//*[contains(translate(@data-e2e,'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), 'user-result')] | "
-                f"//*[contains(translate(text(),'ABCDEFGHIJKLMNOPQRSTUVWXYZ','abcdefghijklmnopqrstuvwxyz'), '{uname_lower}')]"
-            )))
-            resultado.click()
-            _delay(1.5, 2.5)
-        except Exception as e:
-            log(f"  ✗ No encontré a {username} en los resultados: {e}")
-            return False
-
-        # Confirmar selección si aparece un botón de confirmación
-        for label in ["Chat", "Message", "Confirm", "Next", "Siguiente"]:
+        # Escribir el URL en el input del chat
+        msg_box = None
+        for sel in [
+            '[contenteditable="true"][data-e2e="message-input"]',
+            '[contenteditable="true"][placeholder*="message"]',
+            '[contenteditable="true"][placeholder*="mensaje"]',
+            '[contenteditable="true"]',
+        ]:
             try:
-                confirm = short_wait.until(EC.element_to_be_clickable(
-                    (By.XPATH, f"//*[text()='{label}']")
-                ))
-                confirm.click()
-                _delay(1, 2)
+                msg_box = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, sel)))
                 break
             except Exception:
                 continue
 
-        # Escribir el URL en el input del mensaje
-        try:
-            msg_box = wait.until(EC.element_to_be_clickable((
-                By.CSS_SELECTOR,
-                '[contenteditable="true"][data-e2e="message-input"], '
-                '[contenteditable="true"][placeholder*="message"], '
-                '[contenteditable="true"]'
-            )))
-            msg_box.click()
-            _delay(0.4, 0.8)
-            msg_box.send_keys(video_url)
-            _delay(0.6, 1.2)
-            msg_box.send_keys(Keys.RETURN)
-            _delay(1.5, 2.5)
-            log(f"  ✓ Enviado a {username}")
-            return True
-        except Exception as e:
-            log(f"  ✗ No pude escribir/enviar el mensaje a {username}: {e}")
+        if msg_box is None:
+            log(f"  ✗ No encontré el campo de mensaje para {username}")
             return False
+
+        msg_box.click()
+        _delay(0.4, 0.8)
+        msg_box.send_keys(video_url)
+        _delay(0.6, 1.2)
+        msg_box.send_keys(Keys.RETURN)
+        _delay(1.5, 2.5)
+        log(f"  ✓ Enviado a {username}")
+        return True
 
     except Exception as e:
         log(f"  ✗ Error inesperado con {username}: {e}")
