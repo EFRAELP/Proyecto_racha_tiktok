@@ -80,6 +80,7 @@ class App(tk.Tk):
         self.minsize(760, 540)
         self.configure(bg=BG)
         self._plan_actual = []
+        self._bib_row_ids = {}
         self._setup_styles()
         self._build_top_bar()
         self._build_notebook()
@@ -251,10 +252,12 @@ class App(tk.Tk):
     def _refresh_biblioteca(self):
         for r in self.tree_bib.get_children():
             self.tree_bib.delete(r)
+        self._bib_row_ids = {}
         for v in _leer(BIBLIOTECA_PATH, []):
-            self.tree_bib.insert("", "end", iid=v["id"], values=(
+            row_id = self.tree_bib.insert("", "end", values=(
                 v["label"], v["url"], ", ".join(v.get("para", []))
             ))
+            self._bib_row_ids[row_id] = v["id"]
 
     def _video_dialog(self, title, label="", url="", para_actual=None):
         """Ventana reutilizable para agregar/editar video. Retorna dict o None."""
@@ -350,7 +353,9 @@ class App(tk.Tk):
         if not sel:
             messagebox.showinfo("Selecciona", "Selecciona un video de la lista.")
             return
-        vid_id = sel[0]
+        vid_id = self._bib_row_ids.get(sel[0])
+        if not vid_id:
+            return
         bib = _leer(BIBLIOTECA_PATH, [])
         video = next((v for v in bib if v["id"] == vid_id), None)
         if not video:
@@ -374,7 +379,10 @@ class App(tk.Tk):
             return
         if not messagebox.askyesno("Confirmar", "¿Eliminar este video de la biblioteca?"):
             return
-        bib = [v for v in _leer(BIBLIOTECA_PATH, []) if v["id"] != sel[0]]
+        vid_id = self._bib_row_ids.get(sel[0])
+        if not vid_id:
+            return
+        bib = [v for v in _leer(BIBLIOTECA_PATH, []) if v["id"] != vid_id]
         _guardar(BIBLIOTECA_PATH, bib)
         self._refresh_biblioteca()
         self._refresh_dashboard()
