@@ -3,7 +3,6 @@ import random
 
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
@@ -16,6 +15,7 @@ def _delay(min_s=0.8, max_s=2.2):
 
 def _get_driver(chrome_profile_path, profile_name):
     opts = Options()
+    opts.binary_location = r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe"  # ← agregar
     opts.add_argument(f"--user-data-dir={chrome_profile_path}")
     opts.add_argument(f"--profile-directory={profile_name}")
     opts.add_argument("--disable-notifications")
