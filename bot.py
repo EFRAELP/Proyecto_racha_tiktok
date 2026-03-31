@@ -3,13 +3,20 @@ import random
 import os
 import subprocess
 
+import sys
 import pyautogui
 import pygetwindow as gw
 
 pyautogui.FAILSAFE = True
 
-_BASE = os.path.dirname(os.path.abspath(__file__))
-ASSETS = os.path.join(_BASE, "assets")
+if getattr(sys, "frozen", False):
+    _BASE = os.path.dirname(sys.executable)
+else:
+    _BASE = os.path.dirname(os.path.abspath(__file__))
+
+# Buscar assets/ junto al exe/script, o directamente en la misma carpeta
+_ASSETS_SUBDIR = os.path.join(_BASE, "assets")
+ASSETS = _ASSETS_SUBDIR if os.path.isdir(_ASSETS_SUBDIR) else _BASE
 
 _CHROME_PATHS = [
     r"C:\Program Files\Google\Chrome\Application\chrome.exe",

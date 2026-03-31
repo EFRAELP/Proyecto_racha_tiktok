@@ -14,7 +14,13 @@ import os
 import time
 import pyautogui
 
-ASSETS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "assets")
+import sys
+if getattr(sys, "frozen", False):
+    _BASE = os.path.dirname(sys.executable)
+else:
+    _BASE = os.path.dirname(os.path.abspath(__file__))
+
+ASSETS = os.path.join(_BASE, "assets")
 os.makedirs(ASSETS, exist_ok=True)
 
 REGION_SIZE = 70  # Tamaño en píxeles de la región a capturar alrededor del cursor
