@@ -188,6 +188,7 @@ def ejecutar_envios(plan, chrome_profile_path, profile_name, log_callback=None, 
     driver = None
 
     try:
+        log("⚠ Asegúrate de que Chrome esté completamente cerrado antes de continuar.")
         log("Abriendo Chrome con tu perfil (sesión iniciada)...")
         driver = _get_driver(chrome_profile_path, profile_name)
 
