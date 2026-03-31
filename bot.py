@@ -61,6 +61,7 @@ def _find_on_screen(image_name, timeout=15, confidence=0.8):
 
 
 def _check_assets(log):
+    log(f"  [debug] Buscando assets en: {ASSETS}")
     missing = [f for f in ASSETS_NEEDED if not os.path.exists(os.path.join(ASSETS, f))]
     if missing:
         log("✗ Faltan imágenes de referencia en la carpeta assets/:")
