@@ -44,14 +44,20 @@ def _find_chrome():
     return "chrome"
 
 
+def _primary_monitor_region():
+    w, h = pyautogui.size()
+    return (0, 0, w, h)
+
+
 def _find_on_screen(image_name, timeout=15, confidence=0.8):
     img_path = os.path.join(ASSETS, image_name)
     if not os.path.exists(img_path):
         return None
+    region = _primary_monitor_region()
     start = time.time()
     while time.time() - start < timeout:
         try:
-            loc = pyautogui.locateCenterOnScreen(img_path, confidence=confidence)
+            loc = pyautogui.locateCenterOnScreen(img_path, confidence=confidence, region=region)
             if loc:
                 return loc
         except Exception:
