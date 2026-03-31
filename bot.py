@@ -105,7 +105,7 @@ def _send_to_user(username, video_url, chrome_path, chrome_profile_path, profile
                 pass
 
         # Click en el botón de compartir
-        loc = _find_on_screen("share_button.png", timeout=15)
+        loc = _find_on_screen("share_button.png", timeout=20, confidence=0.65)
         if not loc:
             log(f"  ✗ No encontré el botón de compartir para {username}")
             _close_chrome()
