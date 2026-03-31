@@ -113,6 +113,15 @@ def _send_to_user(username, video_url, chrome_path, chrome_profile_path, profile
         # Click en el botón de compartir
         loc = _find_on_screen("share_button.png", timeout=20, confidence=0.65)
         if not loc:
+            # Guardar screenshot de debug para diagnosticar
+            try:
+                region = _primary_monitor_region()
+                debug_img = pyautogui.screenshot(region=region)
+                debug_path = os.path.join(ASSETS, "debug_screenshot.png")
+                debug_img.save(debug_path)
+                log(f"  [debug] Screenshot guardado en assets/debug_screenshot.png")
+            except Exception as ex:
+                log(f"  [debug] No pude guardar screenshot: {ex}")
             log(f"  ✗ No encontré el botón de compartir para {username}")
             _close_chrome()
             return False
