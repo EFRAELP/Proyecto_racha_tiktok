@@ -10,13 +10,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 
 
-_BRAVE_PATHS = [
-    r"C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe",
-    r"C:\Program Files (x86)\BraveSoftware\Brave-Browser\Application\brave.exe",
-    os.path.expandvars(r"%LOCALAPPDATA%\BraveSoftware\Brave-Browser\Application\brave.exe"),
-]
-
-
 def _delay(min_s=0.8, max_s=2.2):
     time.sleep(random.uniform(min_s, max_s))
 
@@ -24,14 +17,7 @@ def _delay(min_s=0.8, max_s=2.2):
 def _get_driver(chrome_profile_path, profile_name):
     opts = Options()
 
-    # Intentar Brave primero, luego Chrome por defecto
-    for path in _BRAVE_PATHS:
-        if os.path.exists(path):
-            opts.binary_location = path
-            break
-
-    # Usar el perfil real del usuario (donde ya tiene sesión iniciada)
-    # IMPORTANTE: Brave debe estar completamente cerrado antes de ejecutar el bot
+    # Usar el perfil real de Chrome (donde ya tiene sesión de TikTok iniciada)
     opts.add_argument(f"--user-data-dir={chrome_profile_path}")
     opts.add_argument(f"--profile-directory={profile_name}")
     opts.add_argument("--disable-notifications")
@@ -202,8 +188,7 @@ def ejecutar_envios(plan, chrome_profile_path, profile_name, log_callback=None, 
     driver = None
 
     try:
-        log("⚠ Asegúrate de que Brave esté completamente cerrado antes de continuar.")
-        log("Abriendo Brave con tu perfil (sesión iniciada)...")
+        log("Abriendo Chrome con tu perfil (sesión iniciada)...")
         driver = _get_driver(chrome_profile_path, profile_name)
 
         for item in plan:
