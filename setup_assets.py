@@ -23,7 +23,7 @@ else:
 ASSETS = os.path.join(_BASE, "assets")
 os.makedirs(ASSETS, exist_ok=True)
 
-REGION_SIZE = 70  # Tamaño en píxeles de la región a capturar alrededor del cursor
+REGION_SIZE = 50  # Tamaño en píxeles de la región a capturar alrededor del cursor
 
 STEPS = [
     (
