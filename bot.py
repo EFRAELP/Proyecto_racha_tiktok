@@ -20,6 +20,8 @@ def _get_driver(chrome_profile_path, profile_name):
     # Usar el perfil real de Chrome (donde ya tiene sesión de TikTok iniciada)
     opts.add_argument(f"--user-data-dir={chrome_profile_path}")
     opts.add_argument(f"--profile-directory={profile_name}")
+    opts.add_argument("--no-sandbox")
+    opts.add_argument("--disable-dev-shm-usage")
     opts.add_argument("--disable-notifications")
     opts.add_argument("--disable-blink-features=AutomationControlled")
     opts.add_experimental_option("excludeSwitches", ["enable-automation"])
