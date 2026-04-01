@@ -1,0 +1,28 @@
+[
+  {
+    "id": "51edce26",
+    "name": "PC CASA",
+    "coords": {
+      "share_button": [
+        999,
+        904
+      ],
+      "send_friends": [
+        630,
+        405
+      ],
+      "search_box": [
+        674,
+        378
+      ],
+      "contact_checkbox": [
+        1039,
+        543
+      ],
+      "send_btn": [
+        1035,
+        776
+      ]
+    }
+  }
+]
