@@ -125,8 +125,17 @@ def _send_to_user(username, video_url, chrome_path, chrome_profile_path, profile
             log(f"  ✗ No encontré el botón de compartir para {username}")
             _close_chrome()
             return False
+        log(f"  [debug] Click compartir en coordenadas: {loc}")
         pyautogui.click(loc)
         _delay(2.5, 3.5)
+
+        # Screenshot post-click para ver si abrió el menú
+        try:
+            region = _primary_monitor_region()
+            post_img = pyautogui.screenshot(region=region)
+            post_img.save(os.path.join(ASSETS, "debug_after_share_click.png"))
+        except Exception:
+            pass
 
         # Click en "Enviar a amigos"
         loc = _find_on_screen("send_friends.png", timeout=12)
