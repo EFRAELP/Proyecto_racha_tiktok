@@ -4,24 +4,24 @@
     "name": "PC CASA",
     "coords": {
       "share_button": [
-        1006,
-        894
+        996,
+        895
       ],
       "send_friends": [
-        628,
-        404
+        631,
+        417
       ],
       "search_box": [
-        674,
-        380
+        677,
+        391
       ],
       "contact_checkbox": [
-        1034,
-        453
+        1038,
+        467
       ],
       "send_btn": [
-        1026,
-        772
+        1028,
+        788
       ]
     }
   }
