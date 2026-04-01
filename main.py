@@ -6,7 +6,7 @@ import uuid
 import sys
 import threading
 import calendar as cal_mod
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 from algoritmo import calcular_plan
 from sync import git_pull, git_push
@@ -24,6 +24,13 @@ BIBLIOTECA_PATH = os.path.join(DATA, "biblioteca.json")
 HISTORIAL_PATH = os.path.join(DATA, "historial.json")
 CONTACTOS_PATH = os.path.join(DATA, "contactos.json")
 COORD_PROFILES_PATH = os.path.join(DATA, "coord_profiles.json")
+
+# ── Timezone Guatemala (UTC-6, sin horario de verano) ─────────────────────────
+_GT = timezone(timedelta(hours=-6))
+
+def _ahora_gt():
+    return datetime.now(_GT)
+
 
 # ── Colores ───────────────────────────────────────────────────────────────────
 BG = "#0d1117"
@@ -525,6 +532,23 @@ class App(tk.Tk):
             messagebox.showinfo("Sin videos", "La biblioteca está vacía.")
             return
 
+        # Excluir contactos que ya recibieron video hoy (hora Guatemala)
+        hoy = _ahora_gt().strftime("%Y-%m-%d")
+        historial = _leer(HISTORIAL_PATH, [])
+        enviados_hoy = {h["enviado_a"] for h in historial
+                        if h.get("fecha", "")[:10] == hoy}
+
+        if enviados_hoy:
+            biblioteca = [
+                {**v, "para": [c for c in v.get("para", []) if c not in enviados_hoy]}
+                for v in biblioteca
+                if any(c not in enviados_hoy for c in v.get("para", []))
+            ]
+
+        if not biblioteca:
+            messagebox.showinfo("Al día", "Ya enviaste video a todos los contactos hoy. 🎉")
+            return
+
         plan, sin_cobertura = calcular_plan(biblioteca)
         self._plan_actual = plan
 
@@ -551,7 +575,7 @@ class App(tk.Tk):
 
     def _log(self, msg):
         self.log_text.config(state="normal")
-        ts = datetime.now().strftime("%H:%M:%S")
+        ts = _ahora_gt().strftime("%H:%M:%S")
         self.log_text.insert("end", f"[{ts}] {msg}\n")
         self.log_text.see("end")
         self.log_text.config(state="disabled")
@@ -588,7 +612,7 @@ class App(tk.Tk):
         def on_done(resultados):
             bib = _leer(BIBLIOTECA_PATH, [])
             historial = _leer(HISTORIAL_PATH, [])
-            now = datetime.now().strftime("%Y-%m-%d %H:%M")
+            now = _ahora_gt().strftime("%Y-%m-%d %H:%M")
 
             ok_count = 0
             for r in resultados:
@@ -639,7 +663,7 @@ class App(tk.Tk):
     # ══════════════════════════════════════════════════════════════════════════
     def _build_historial(self):
         f = self.tab_historial
-        now = datetime.now()
+        now = _ahora_gt()
         self._cal_year = now.year
         self._cal_month = now.month
 
@@ -684,7 +708,7 @@ class App(tk.Tk):
         self._draw_calendar()
 
     def _ir_hoy(self):
-        now = datetime.now()
+        now = _ahora_gt()
         self._cal_year, self._cal_month = now.year, now.month
         self._draw_calendar()
 
@@ -711,7 +735,7 @@ class App(tk.Tk):
                      font=("Segoe UI", 8, "bold"), width=8).grid(
                 row=0, column=i, padx=2, pady=(0, 4))
 
-        hoy = datetime.now().strftime("%Y-%m-%d")
+        hoy = _ahora_gt().strftime("%Y-%m-%d")
         weeks = cal_mod.monthcalendar(self._cal_year, self._cal_month)
 
         for week_i, week in enumerate(weeks):
