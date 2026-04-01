@@ -99,14 +99,14 @@ def _send_to_user(username, video_url, chrome_path, chrome_profile_path, profile
             video_url,
         ]
         subprocess.Popen(cmd)
-        _delay(5, 7)
+        _delay(7, 9)
 
         # Traer Chrome al frente
         wins = [w for w in gw.getAllWindows() if "Chrome" in w.title]
         if wins:
             try:
                 wins[-1].activate()
-                _delay(0.5, 1)
+                _delay(1, 2)
             except Exception:
                 pass
 
@@ -126,16 +126,16 @@ def _send_to_user(username, video_url, chrome_path, chrome_profile_path, profile
             _close_chrome()
             return False
         pyautogui.click(loc)
-        _delay(1.5, 2.5)
+        _delay(2.5, 3.5)
 
         # Click en "Enviar a amigos"
-        loc = _find_on_screen("send_friends.png", timeout=10)
+        loc = _find_on_screen("send_friends.png", timeout=12)
         if not loc:
             log(f"  ✗ No encontré 'Enviar a amigos' para {username}")
             _close_chrome()
             return False
         pyautogui.click(loc)
-        _delay(1.5, 2.5)
+        _delay(2.5, 3.5)
 
         # Click en el buscador del modal
         loc = _find_on_screen("search_box.png", timeout=10)
