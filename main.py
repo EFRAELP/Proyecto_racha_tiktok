@@ -39,16 +39,12 @@ BG3 = "#21262d"
 ACCENT = "#e91e8c"
 
 CALIB_STEPS = [
-    ("share_button",      "Botón Compartir",
+    ("share_button", "Botón Compartir",
      "Abre TikTok en un video en Chrome.\nMueve el cursor al botón de compartir (↗) y presiona Capturar."),
-    ("send_friends",      "Enviar a amigos",
+    ("send_friends", "Enviar a amigos",
      "Haz click en el botón compartir para abrir el menú.\nMueve el cursor a 'Enviar a amigos' y presiona Capturar."),
-    ("search_box",        "Campo de búsqueda",
-     "Dentro del modal 'Enviar a amigos',\nmueve el cursor al campo de búsqueda y presiona Capturar."),
-    ("contact_checkbox",  "Checkbox del contacto",
-     "Busca cualquier contacto. Mueve el cursor al\ncírculo/checkbox del primer resultado y presiona Capturar."),
-    ("send_btn",          "Botón Enviar",
-     "Selecciona el contacto (el círculo se llena).\nMueve el cursor al botón 'Enviar' y presiona Capturar."),
+    ("send_btn", "Botón Enviar",
+     "Selecciona cualquier contacto en el modal.\nMueve el cursor al botón 'Enviar' que aparece y presiona Capturar."),
 ]
 ACCENT2 = "#c2185b"
 FG = "#e6edf3"
@@ -843,7 +839,7 @@ class App(tk.Tk):
         nuevo = {
             "id": str(uuid.uuid4())[:8],
             "name": nombre.strip(),
-            "coords": {k: [0, 0] for k in bot.COORD_KEYS},
+            "coords": {k: [0, 0] for k in bot.COORD_KEYS} | {"contacts": {}},
         }
         perfiles.append(nuevo)
         _guardar(COORD_PROFILES_PATH, perfiles)
@@ -898,22 +894,33 @@ class App(tk.Tk):
     def _abrir_calibrador(self, perfil, perfiles):
         import pyautogui as pag
 
+        contactos = _leer(CONTACTOS_PATH, [])
+
+        # Pasos fijos + un paso por cada contacto
+        steps = list(CALIB_STEPS[:2])  # share_button, send_friends
+        for c in contactos:
+            steps.append((f"contact:{c}", c,
+                          f"En el modal 'Enviar a amigos', mueve el cursor\n"
+                          f"encima del nombre de {c} en la lista y presiona Capturar."))
+        steps.append(CALIB_STEPS[-1])  # send_btn
+
+        coords_guardadas = dict(perfil.get("coords", {}))
+        contacts_guardados = dict(coords_guardadas.get("contacts", {}))
+        state = {"step": 0, "coords": coords_guardadas, "contacts": contacts_guardados}
+
         win = tk.Toplevel(self)
         win.title(f"Calibrar — {perfil['name']}")
-        win.geometry("420x300")
+        win.geometry("440x320")
         win.configure(bg=BG)
         win.attributes("-topmost", True)
         win.resizable(False, False)
 
-        state = {"step": 0, "coords": dict(perfil.get("coords", {}))}
-
-        # Widgets
         lbl_paso = tk.Label(win, text="", bg=BG, fg=ACCENT,
                             font=("Segoe UI", 10, "bold"))
         lbl_paso.pack(pady=(16, 4), padx=20, anchor="w")
 
         lbl_instr = tk.Label(win, text="", bg=BG, fg=FG,
-                             font=("Segoe UI", 9), justify="left", wraplength=380)
+                             font=("Segoe UI", 9), justify="left", wraplength=400)
         lbl_instr.pack(padx=20, anchor="w")
 
         lbl_capturado = tk.Label(win, text="", bg=BG, fg=GREEN,
@@ -927,35 +934,25 @@ class App(tk.Tk):
         btn_cap = ttk.Button(win, text="🎯  Capturar en 3 seg")
         btn_cap.pack(pady=6)
 
-        lbl_progress = tk.Label(win, text="", bg=BG, fg=FG2,
-                                font=("Segoe UI", 8))
-        lbl_progress.pack(pady=(0, 4))
-
-        btn_guardar = ttk.Button(win, text="💾  Guardar y cerrar",
-                                 state="disabled")
+        btn_guardar = ttk.Button(win, text="💾  Guardar y cerrar", state="disabled")
         btn_guardar.pack(pady=4)
 
         def mostrar_paso():
             step = state["step"]
-            if step >= len(CALIB_STEPS):
+            if step >= len(steps):
                 lbl_paso.config(text="✅ Calibración completa")
                 lbl_instr.config(text="Todas las coordenadas capturadas.")
                 btn_cap.config(state="disabled")
                 btn_guardar.config(state="normal")
-                lbl_progress.config(text="")
                 return
-            key, nombre, instruccion = CALIB_STEPS[step]
-            lbl_paso.config(text=f"Paso {step + 1}/{len(CALIB_STEPS)}: {nombre}")
+            key, nombre, instruccion = steps[step]
+            lbl_paso.config(text=f"Paso {step + 1}/{len(steps)}: {nombre}")
             lbl_instr.config(text=instruccion)
-            lbl_progress.config(text=" → ".join(
-                ("✓ " + CALIB_STEPS[i][1]) if i < step else CALIB_STEPS[i][1]
-                for i in range(len(CALIB_STEPS))
-            ))
-            c = state["coords"].get(key, [0, 0])
-            if c != [0, 0]:
-                lbl_capturado.config(text=f"Actual: {c}")
+            if key.startswith("contact:"):
+                c = state["contacts"].get(key[8:], [0, 0])
             else:
-                lbl_capturado.config(text="")
+                c = state["coords"].get(key, [0, 0])
+            lbl_capturado.config(text=f"Actual: {c}" if c != [0, 0] else "")
 
         def countdown(n):
             if n > 0:
@@ -963,9 +960,12 @@ class App(tk.Tk):
                 win.after(1000, lambda: countdown(n - 1))
             else:
                 lbl_countdown.config(text="")
-                key = CALIB_STEPS[state["step"]][0]
+                key = steps[state["step"]][0]
                 x, y = pag.position()
-                state["coords"][key] = [x, y]
+                if key.startswith("contact:"):
+                    state["contacts"][key[8:]] = [x, y]
+                else:
+                    state["coords"][key] = [x, y]
                 lbl_capturado.config(text=f"Capturado: ({x}, {y})")
                 state["step"] += 1
                 btn_cap.config(state="normal")
@@ -976,6 +976,7 @@ class App(tk.Tk):
             countdown(3)
 
         def guardar():
+            state["coords"]["contacts"] = state["contacts"]
             for p in perfiles:
                 if p["id"] == perfil["id"]:
                     p["coords"] = state["coords"]

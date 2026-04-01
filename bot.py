@@ -14,13 +14,8 @@ _CHROME_PATHS = [
     os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
 ]
 
-COORD_KEYS = [
-    "share_button",
-    "send_friends",
-    "search_box",
-    "contact_checkbox",
-    "send_btn",
-]
+# Claves fijas del perfil (los contactos van en coords["contacts"])
+COORD_KEYS = ["share_button", "send_friends", "send_btn"]
 
 
 def _delay(min_s=0.8, max_s=2.2):
@@ -44,8 +39,17 @@ def _close_chrome():
 
 def _send_video_to_contacts(video_url, usernames, chrome_path,
                             chrome_profile_path, profile_name, coords, log):
-    """Abre Chrome una sola vez y envía el video a todos los contactos en la misma sesión."""
+    """Abre Chrome una sola vez y selecciona cada contacto por su posición en el modal."""
     results = {u: False for u in usernames}
+    contact_coords = coords.get("contacts", {})
+
+    # Verificar que todos los contactos tienen coordenadas
+    sin_coords = [u for u in usernames if u not in contact_coords]
+    if sin_coords:
+        for u in sin_coords:
+            log(f"  ✗ Sin coordenadas para {u} — calibra el perfil")
+        return results
+
     try:
         cmd = [
             chrome_path,
@@ -74,24 +78,14 @@ def _send_video_to_contacts(video_url, usernames, chrome_path,
         pyautogui.click(*coords["send_friends"])
         _delay(2.5, 3.5)
 
-        # Seleccionar cada contacto en el mismo modal
+        # Click en la posición de cada contacto en la lista reciente
         for username in usernames:
-            uname = username.lstrip("@")
-
-            # Click en el buscador y reemplazar texto
-            pyautogui.click(*coords["search_box"])
-            _delay(0.3, 0.5)
-            pyautogui.hotkey("ctrl", "a")
-            pyautogui.write(uname, interval=0.08)
-            _delay(2, 3)
-
-            # Click en el checkbox del primer resultado
-            pyautogui.click(*coords["contact_checkbox"])
-            _delay(0.8, 1.2)
+            pyautogui.click(*contact_coords[username])
+            _delay(0.5, 0.8)
             log(f"  ✓ Seleccionado: {username}")
             results[username] = True
 
-        # Enviar a todos los contactos seleccionados de una vez
+        # Enviar a todos los seleccionados de una vez
         pyautogui.click(*coords["send_btn"])
         _delay(1.5, 2.5)
 
