@@ -22,12 +22,26 @@ CONFIG_PATH = os.path.join(BASE, "config.json")
 BIBLIOTECA_PATH = os.path.join(DATA, "biblioteca.json")
 HISTORIAL_PATH = os.path.join(DATA, "historial.json")
 CONTACTOS_PATH = os.path.join(DATA, "contactos.json")
+COORD_PROFILES_PATH = os.path.join(DATA, "coord_profiles.json")
 
 # ── Colores ───────────────────────────────────────────────────────────────────
 BG = "#0d1117"
 BG2 = "#161b22"
 BG3 = "#21262d"
 ACCENT = "#e91e8c"
+
+CALIB_STEPS = [
+    ("share_button",      "Botón Compartir",
+     "Abre TikTok en un video en Chrome.\nMueve el cursor al botón de compartir (↗) y presiona Capturar."),
+    ("send_friends",      "Enviar a amigos",
+     "Haz click en el botón compartir para abrir el menú.\nMueve el cursor a 'Enviar a amigos' y presiona Capturar."),
+    ("search_box",        "Campo de búsqueda",
+     "Dentro del modal 'Enviar a amigos',\nmueve el cursor al campo de búsqueda y presiona Capturar."),
+    ("contact_checkbox",  "Checkbox del contacto",
+     "Busca cualquier contacto. Mueve el cursor al\ncírculo/checkbox del primer resultado y presiona Capturar."),
+    ("send_btn",          "Botón Enviar",
+     "Selecciona el contacto (el círculo se llena).\nMueve el cursor al botón 'Enviar' y presiona Capturar."),
+]
 ACCENT2 = "#c2185b"
 FG = "#e6edf3"
 FG2 = "#8b949e"
@@ -148,15 +162,19 @@ class App(tk.Tk):
         self.tab_cont = ttk.Frame(self.nb)
         self.tab_enviar = ttk.Frame(self.nb)
 
+        self.tab_perfiles = ttk.Frame(self.nb)
+
         self.nb.add(self.tab_dash, text="  📊 Dashboard  ")
         self.nb.add(self.tab_bib, text="  📚 Biblioteca  ")
         self.nb.add(self.tab_cont, text="  👥 Contactos  ")
         self.nb.add(self.tab_enviar, text="  🚀 Enviar Hoy  ")
+        self.nb.add(self.tab_perfiles, text="  🖥 Perfiles  ")
 
         self._build_dashboard()
         self._build_biblioteca()
         self._build_contactos()
         self._build_enviar()
+        self._build_perfiles()
 
     # ══════════════════════════════════════════════════════════════════════════
     # DASHBOARD
@@ -545,8 +563,19 @@ class App(tk.Tk):
             )
             return
 
+        # Cargar perfil de coordenadas activo
+        activo_id = cfg.get("active_coord_profile", "")
+        perfiles = _leer(COORD_PROFILES_PATH, [])
+        coord_profile = next((p for p in perfiles if p["id"] == activo_id), None)
+        if not coord_profile:
+            messagebox.showerror(
+                "Sin perfil activo",
+                "Ve a la pestaña 🖥 Perfiles, crea un perfil y calibra las coordenadas."
+            )
+            return
+
         self.btn_ejecutar.config(state="disabled")
-        self._log("Iniciando Chrome...")
+        self._log(f"Iniciando Chrome con perfil '{coord_profile['name']}'...")
 
         def on_done(resultados):
             bib = _leer(BIBLIOTECA_PATH, [])
@@ -590,11 +619,218 @@ class App(tk.Tk):
                 self._plan_actual,
                 chrome_profile,
                 chrome_profile_name,
+                coord_profile,
                 lambda m: self.after(0, lambda msg=m: self._log(msg)),
                 on_done,
             ),
             daemon=True,
         ).start()
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # PERFILES DE COORDENADAS
+    # ══════════════════════════════════════════════════════════════════════════
+    def _build_perfiles(self):
+        f = self.tab_perfiles
+
+        ttk.Label(f, text="Perfiles de coordenadas",
+                  style="Header.TLabel").pack(pady=(14, 2), padx=14, anchor="w")
+        ttk.Label(f, text="Cada perfil guarda las coordenadas de los botones para una PC específica.",
+                  style="TLabel").pack(padx=14, anchor="w")
+
+        self.lbl_activo = tk.Label(f, text="", bg=BG, fg=GREEN,
+                                   font=("Segoe UI", 9, "bold"))
+        self.lbl_activo.pack(padx=14, pady=(6, 2), anchor="w")
+
+        list_frame = tk.Frame(f, bg=BG)
+        list_frame.pack(fill="both", expand=True, padx=14, pady=4)
+
+        self.lb_perfiles = tk.Listbox(list_frame, font=("Segoe UI", 11),
+                                      bg=BG2, fg=FG, selectbackground=ACCENT,
+                                      activestyle="none", relief="flat", height=10)
+        self.lb_perfiles.pack(fill="both", expand=True)
+
+        btn_frame = tk.Frame(f, bg=BG)
+        btn_frame.pack(pady=10)
+        ttk.Button(btn_frame, text="➕  Nuevo",
+                   command=self._nuevo_perfil).pack(side="left", padx=6)
+        ttk.Button(btn_frame, text="🎯  Calibrar", style="Secondary.TButton",
+                   command=self._calibrar_perfil).pack(side="left", padx=6)
+        ttk.Button(btn_frame, text="✓  Activar", style="Secondary.TButton",
+                   command=self._activar_perfil).pack(side="left", padx=6)
+        ttk.Button(btn_frame, text="🗑  Eliminar", style="Secondary.TButton",
+                   command=self._eliminar_perfil).pack(side="left", padx=6)
+
+    def _refresh_perfiles(self):
+        self.lb_perfiles.delete(0, "end")
+        cfg = _leer_config()
+        activo_id = cfg.get("active_coord_profile", "")
+        perfiles = _leer(COORD_PROFILES_PATH, [])
+        activo_nombre = ""
+        for p in perfiles:
+            marker = " ✓" if p["id"] == activo_id else ""
+            self.lb_perfiles.insert("end", f"{p['name']}{marker}")
+            if p["id"] == activo_id:
+                activo_nombre = p["name"]
+                self.lb_perfiles.itemconfig("end", fg=GREEN)
+        if activo_nombre:
+            self.lbl_activo.config(text=f"Activo: {activo_nombre}")
+        else:
+            self.lbl_activo.config(text="Sin perfil activo")
+
+    def _nuevo_perfil(self):
+        nombre = simpledialog.askstring("Nuevo perfil",
+                                        "Nombre del perfil (ej: PC Casa, Laptop):", parent=self)
+        if not nombre:
+            return
+        perfiles = _leer(COORD_PROFILES_PATH, [])
+        nuevo = {
+            "id": str(uuid.uuid4())[:8],
+            "name": nombre.strip(),
+            "coords": {k: [0, 0] for k in bot.COORD_KEYS},
+        }
+        perfiles.append(nuevo)
+        _guardar(COORD_PROFILES_PATH, perfiles)
+        self._refresh_perfiles()
+        messagebox.showinfo("Perfil creado",
+                            f"Perfil '{nombre}' creado.\nSelecciónalo y usa 🎯 Calibrar para configurar las coordenadas.")
+
+    def _activar_perfil(self):
+        sel = self.lb_perfiles.curselection()
+        if not sel:
+            messagebox.showinfo("Selecciona", "Selecciona un perfil de la lista.")
+            return
+        perfiles = _leer(COORD_PROFILES_PATH, [])
+        if sel[0] >= len(perfiles):
+            return
+        perfil = perfiles[sel[0]]
+        cfg = _leer_config()
+        cfg["active_coord_profile"] = perfil["id"]
+        _guardar_config(cfg)
+        self._refresh_perfiles()
+
+    def _eliminar_perfil(self):
+        sel = self.lb_perfiles.curselection()
+        if not sel:
+            messagebox.showinfo("Selecciona", "Selecciona un perfil de la lista.")
+            return
+        perfiles = _leer(COORD_PROFILES_PATH, [])
+        if sel[0] >= len(perfiles):
+            return
+        perfil = perfiles[sel[0]]
+        if not messagebox.askyesno("Confirmar", f"¿Eliminar el perfil '{perfil['name']}'?"):
+            return
+        perfiles.pop(sel[0])
+        _guardar(COORD_PROFILES_PATH, perfiles)
+        cfg = _leer_config()
+        if cfg.get("active_coord_profile") == perfil["id"]:
+            cfg["active_coord_profile"] = ""
+            _guardar_config(cfg)
+        self._refresh_perfiles()
+
+    def _calibrar_perfil(self):
+        sel = self.lb_perfiles.curselection()
+        if not sel:
+            messagebox.showinfo("Selecciona", "Selecciona un perfil para calibrar.")
+            return
+        perfiles = _leer(COORD_PROFILES_PATH, [])
+        if sel[0] >= len(perfiles):
+            return
+        perfil = perfiles[sel[0]]
+        self._abrir_calibrador(perfil, perfiles)
+
+    def _abrir_calibrador(self, perfil, perfiles):
+        import pyautogui as pag
+
+        win = tk.Toplevel(self)
+        win.title(f"Calibrar — {perfil['name']}")
+        win.geometry("420x300")
+        win.configure(bg=BG)
+        win.attributes("-topmost", True)
+        win.resizable(False, False)
+
+        state = {"step": 0, "coords": dict(perfil.get("coords", {}))}
+
+        # Widgets
+        lbl_paso = tk.Label(win, text="", bg=BG, fg=ACCENT,
+                            font=("Segoe UI", 10, "bold"))
+        lbl_paso.pack(pady=(16, 4), padx=20, anchor="w")
+
+        lbl_instr = tk.Label(win, text="", bg=BG, fg=FG,
+                             font=("Segoe UI", 9), justify="left", wraplength=380)
+        lbl_instr.pack(padx=20, anchor="w")
+
+        lbl_capturado = tk.Label(win, text="", bg=BG, fg=GREEN,
+                                 font=("Segoe UI", 9))
+        lbl_capturado.pack(pady=(8, 0))
+
+        lbl_countdown = tk.Label(win, text="", bg=BG, fg=YELLOW,
+                                 font=("Segoe UI", 20, "bold"))
+        lbl_countdown.pack(pady=4)
+
+        btn_cap = ttk.Button(win, text="🎯  Capturar en 3 seg")
+        btn_cap.pack(pady=6)
+
+        lbl_progress = tk.Label(win, text="", bg=BG, fg=FG2,
+                                font=("Segoe UI", 8))
+        lbl_progress.pack(pady=(0, 4))
+
+        btn_guardar = ttk.Button(win, text="💾  Guardar y cerrar",
+                                 state="disabled")
+        btn_guardar.pack(pady=4)
+
+        def mostrar_paso():
+            step = state["step"]
+            if step >= len(CALIB_STEPS):
+                lbl_paso.config(text="✅ Calibración completa")
+                lbl_instr.config(text="Todas las coordenadas capturadas.")
+                btn_cap.config(state="disabled")
+                btn_guardar.config(state="normal")
+                lbl_progress.config(text="")
+                return
+            key, nombre, instruccion = CALIB_STEPS[step]
+            lbl_paso.config(text=f"Paso {step + 1}/{len(CALIB_STEPS)}: {nombre}")
+            lbl_instr.config(text=instruccion)
+            lbl_progress.config(text=" → ".join(
+                ("✓ " + CALIB_STEPS[i][1]) if i < step else CALIB_STEPS[i][1]
+                for i in range(len(CALIB_STEPS))
+            ))
+            c = state["coords"].get(key, [0, 0])
+            if c != [0, 0]:
+                lbl_capturado.config(text=f"Actual: {c}")
+            else:
+                lbl_capturado.config(text="")
+
+        def countdown(n):
+            if n > 0:
+                lbl_countdown.config(text=str(n))
+                win.after(1000, lambda: countdown(n - 1))
+            else:
+                lbl_countdown.config(text="")
+                key = CALIB_STEPS[state["step"]][0]
+                x, y = pag.position()
+                state["coords"][key] = [x, y]
+                lbl_capturado.config(text=f"Capturado: ({x}, {y})")
+                state["step"] += 1
+                btn_cap.config(state="normal")
+                win.after(600, mostrar_paso)
+
+        def capturar():
+            btn_cap.config(state="disabled")
+            countdown(3)
+
+        def guardar():
+            for p in perfiles:
+                if p["id"] == perfil["id"]:
+                    p["coords"] = state["coords"]
+                    break
+            _guardar(COORD_PROFILES_PATH, perfiles)
+            win.destroy()
+            messagebox.showinfo("Guardado", f"Coordenadas de '{perfil['name']}' guardadas.")
+            self._refresh_perfiles()
+
+        btn_cap.config(command=capturar)
+        btn_guardar.config(command=guardar)
+        mostrar_paso()
 
     # ── Config dialog ─────────────────────────────────────────────────────────
     def _open_config(self):
@@ -661,6 +897,7 @@ class App(tk.Tk):
         self._refresh_dashboard()
         self._refresh_biblioteca()
         self._refresh_contactos()
+        self._refresh_perfiles()
 
 
 # ──────────────────────────────────────────────────────────────────────────────

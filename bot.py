@@ -3,20 +3,10 @@ import random
 import os
 import subprocess
 
-import sys
 import pyautogui
 import pygetwindow as gw
 
 pyautogui.FAILSAFE = True
-
-if getattr(sys, "frozen", False):
-    _BASE = os.path.dirname(sys.executable)
-else:
-    _BASE = os.path.dirname(os.path.abspath(__file__))
-
-# Buscar assets/ junto al exe/script, o directamente en la misma carpeta
-_ASSETS_SUBDIR = os.path.join(_BASE, "assets")
-ASSETS = _ASSETS_SUBDIR if os.path.isdir(_ASSETS_SUBDIR) else _BASE
 
 _CHROME_PATHS = [
     r"C:\Program Files\Google\Chrome\Application\chrome.exe",
@@ -24,12 +14,12 @@ _CHROME_PATHS = [
     os.path.expandvars(r"%LOCALAPPDATA%\Google\Chrome\Application\chrome.exe"),
 ]
 
-ASSETS_NEEDED = [
-    "share_button.png",
-    "send_friends.png",
-    "search_box.png",
-    "contact_checkbox.png",
-    "send_btn.png",
+COORD_KEYS = [
+    "share_button",
+    "send_friends",
+    "search_box",
+    "contact_checkbox",
+    "send_btn",
 ]
 
 
@@ -44,48 +34,6 @@ def _find_chrome():
     return "chrome"
 
 
-def _primary_monitor_region():
-    w, h = pyautogui.size()
-    return (0, 0, w, h)
-
-
-def _video_controls_region():
-    """Región donde están los botones de TikTok (derecha del video, fuera del toolbar)."""
-    w, h = pyautogui.size()
-    # Excluir toolbar de Chrome (primeros 150px) y buscar solo en mitad derecha
-    return (w // 2, 150, w // 2, h - 150)
-
-
-def _find_on_screen(image_name, timeout=15, confidence=0.8, region=None):
-    img_path = os.path.join(ASSETS, image_name)
-    if not os.path.exists(img_path):
-        return None
-    if region is None:
-        region = _primary_monitor_region()
-    start = time.time()
-    while time.time() - start < timeout:
-        try:
-            loc = pyautogui.locateCenterOnScreen(img_path, confidence=confidence, region=region)
-            if loc:
-                return loc
-        except Exception:
-            pass
-        time.sleep(0.5)
-    return None
-
-
-def _check_assets(log):
-    log(f"  [debug] Buscando assets en: {ASSETS}")
-    missing = [f for f in ASSETS_NEEDED if not os.path.exists(os.path.join(ASSETS, f))]
-    if missing:
-        log("✗ Faltan imágenes de referencia en la carpeta assets/:")
-        for f in missing:
-            log(f"    - {f}")
-        log("  → Ejecuta setup_assets.py primero para capturarlas.")
-        return False
-    return True
-
-
 def _close_chrome():
     try:
         pyautogui.hotkey("alt", "F4")
@@ -94,10 +42,9 @@ def _close_chrome():
         pass
 
 
-def _send_to_user(username, video_url, chrome_path, chrome_profile_path, profile_name, log):
+def _send_to_user(username, video_url, chrome_path, chrome_profile_path, profile_name, coords, log):
     uname = username.lstrip("@")
     try:
-        # Abrir Chrome con el perfil del usuario y el video
         cmd = [
             chrome_path,
             f"--user-data-dir={chrome_profile_path}",
@@ -118,71 +65,28 @@ def _send_to_user(username, video_url, chrome_path, chrome_profile_path, profile
             except Exception:
                 pass
 
-        # Click en el botón de compartir (solo buscar en zona del video, no toolbar)
-        loc = _find_on_screen("share_button.png", timeout=20, confidence=0.7, region=_video_controls_region())
-        if not loc:
-            # Guardar screenshot de debug para diagnosticar
-            try:
-                region = _primary_monitor_region()
-                debug_img = pyautogui.screenshot(region=region)
-                debug_path = os.path.join(ASSETS, "debug_screenshot.png")
-                debug_img.save(debug_path)
-                log(f"  [debug] Screenshot guardado en assets/debug_screenshot.png")
-            except Exception as ex:
-                log(f"  [debug] No pude guardar screenshot: {ex}")
-            log(f"  ✗ No encontré el botón de compartir para {username}")
-            _close_chrome()
-            return False
-        log(f"  [debug] Click compartir en coordenadas: {loc}")
-        pyautogui.click(loc)
+        # Click botón compartir
+        pyautogui.click(*coords["share_button"])
         _delay(2.5, 3.5)
 
-        # Screenshot post-click para ver si abrió el menú
-        try:
-            region = _primary_monitor_region()
-            post_img = pyautogui.screenshot(region=region)
-            post_img.save(os.path.join(ASSETS, "debug_after_share_click.png"))
-        except Exception:
-            pass
-
-        # Click en "Enviar a amigos"
-        loc = _find_on_screen("send_friends.png", timeout=12)
-        if not loc:
-            log(f"  ✗ No encontré 'Enviar a amigos' para {username}")
-            _close_chrome()
-            return False
-        pyautogui.click(loc)
+        # Click "Enviar a amigos"
+        pyautogui.click(*coords["send_friends"])
         _delay(2.5, 3.5)
 
-        # Click en el buscador del modal
-        loc = _find_on_screen("search_box.png", timeout=10)
-        if not loc:
-            log(f"  ✗ No encontré el buscador para {username}")
-            _close_chrome()
-            return False
-        pyautogui.click(loc)
-        _delay(0.4, 0.8)
+        # Click campo de búsqueda
+        pyautogui.click(*coords["search_box"])
+        _delay(0.5, 1)
 
-        # Escribir el username
+        # Escribir username
         pyautogui.write(uname, interval=0.08)
         _delay(2, 3)
 
-        # Click en el checkbox del primer resultado
-        loc = _find_on_screen("contact_checkbox.png", timeout=8, confidence=0.75)
-        if not loc:
-            log(f"  ✗ No encontré a {username} en los resultados")
-            _close_chrome()
-            return False
-        pyautogui.click(loc)
+        # Click checkbox del primer resultado
+        pyautogui.click(*coords["contact_checkbox"])
         _delay(0.8, 1.5)
 
-        # Click en el botón Enviar
-        loc = _find_on_screen("send_btn.png", timeout=8)
-        if not loc:
-            log(f"  ✗ No encontré el botón de envío para {username}")
-            _close_chrome()
-            return False
-        pyautogui.click(loc)
+        # Click botón enviar
+        pyautogui.click(*coords["send_btn"])
         _delay(1.5, 2.5)
 
         log(f"  ✓ Enviado a {username}")
@@ -195,7 +99,8 @@ def _send_to_user(username, video_url, chrome_path, chrome_profile_path, profile
         return False
 
 
-def ejecutar_envios(plan, chrome_profile_path, profile_name, log_callback=None, done_callback=None):
+def ejecutar_envios(plan, chrome_profile_path, profile_name, coord_profile,
+                    log_callback=None, done_callback=None):
     def log(msg):
         if log_callback:
             log_callback(msg)
@@ -203,13 +108,15 @@ def ejecutar_envios(plan, chrome_profile_path, profile_name, log_callback=None, 
     resultados = []
 
     try:
-        if not _check_assets(log):
+        if not coord_profile:
+            log("✗ No hay perfil de coordenadas activo.")
+            log("  → Ve a la pestaña Perfiles, crea uno y calibra las coordenadas.")
             if done_callback:
                 done_callback(resultados)
             return
 
         chrome_path = _find_chrome()
-        log(f"Usando Chrome: {chrome_path}")
+        log(f"Chrome: {chrome_path}")
         log("Iniciando envíos...")
 
         for item in plan:
@@ -220,7 +127,7 @@ def ejecutar_envios(plan, chrome_profile_path, profile_name, log_callback=None, 
                 ok = _send_to_user(
                     contacto, video["url"],
                     chrome_path, chrome_profile_path, profile_name,
-                    log
+                    coord_profile["coords"], log,
                 )
                 resultados.append({
                     "video_id": video["id"],
