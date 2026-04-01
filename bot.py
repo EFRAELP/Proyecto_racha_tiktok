@@ -49,11 +49,19 @@ def _primary_monitor_region():
     return (0, 0, w, h)
 
 
-def _find_on_screen(image_name, timeout=15, confidence=0.8):
+def _video_controls_region():
+    """Región donde están los botones de TikTok (derecha del video, fuera del toolbar)."""
+    w, h = pyautogui.size()
+    # Excluir toolbar de Chrome (primeros 150px) y buscar solo en mitad derecha
+    return (w // 2, 150, w // 2, h - 150)
+
+
+def _find_on_screen(image_name, timeout=15, confidence=0.8, region=None):
     img_path = os.path.join(ASSETS, image_name)
     if not os.path.exists(img_path):
         return None
-    region = _primary_monitor_region()
+    if region is None:
+        region = _primary_monitor_region()
     start = time.time()
     while time.time() - start < timeout:
         try:
@@ -110,8 +118,8 @@ def _send_to_user(username, video_url, chrome_path, chrome_profile_path, profile
             except Exception:
                 pass
 
-        # Click en el botón de compartir
-        loc = _find_on_screen("share_button.png", timeout=20, confidence=0.65)
+        # Click en el botón de compartir (solo buscar en zona del video, no toolbar)
+        loc = _find_on_screen("share_button.png", timeout=20, confidence=0.7, region=_video_controls_region())
         if not loc:
             # Guardar screenshot de debug para diagnosticar
             try:
