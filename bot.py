@@ -42,8 +42,10 @@ def _close_chrome():
         pass
 
 
-def _send_to_user(username, video_url, chrome_path, chrome_profile_path, profile_name, coords, log):
-    uname = username.lstrip("@")
+def _send_video_to_contacts(video_url, usernames, chrome_path,
+                            chrome_profile_path, profile_name, coords, log):
+    """Abre Chrome una sola vez y envía el video a todos los contactos en la misma sesión."""
+    results = {u: False for u in usernames}
     try:
         cmd = [
             chrome_path,
@@ -56,7 +58,6 @@ def _send_to_user(username, video_url, chrome_path, chrome_profile_path, profile
         subprocess.Popen(cmd)
         _delay(7, 9)
 
-        # Traer Chrome al frente
         wins = [w for w in gw.getAllWindows() if "Chrome" in w.title]
         if wins:
             try:
@@ -73,30 +74,35 @@ def _send_to_user(username, video_url, chrome_path, chrome_profile_path, profile
         pyautogui.click(*coords["send_friends"])
         _delay(2.5, 3.5)
 
-        # Click campo de búsqueda
-        pyautogui.click(*coords["search_box"])
-        _delay(0.5, 1)
+        # Seleccionar cada contacto en el mismo modal
+        for username in usernames:
+            uname = username.lstrip("@")
 
-        # Escribir username
-        pyautogui.write(uname, interval=0.08)
-        _delay(2, 3)
+            # Click en el buscador y reemplazar texto
+            pyautogui.click(*coords["search_box"])
+            _delay(0.3, 0.5)
+            pyautogui.hotkey("ctrl", "a")
+            pyautogui.write(uname, interval=0.08)
+            _delay(2, 3)
 
-        # Click checkbox del primer resultado
-        pyautogui.click(*coords["contact_checkbox"])
-        _delay(0.8, 1.5)
+            # Click en el checkbox del primer resultado
+            pyautogui.click(*coords["contact_checkbox"])
+            _delay(0.8, 1.2)
+            log(f"  ✓ Seleccionado: {username}")
+            results[username] = True
 
-        # Click botón enviar
+        # Enviar a todos los contactos seleccionados de una vez
         pyautogui.click(*coords["send_btn"])
         _delay(1.5, 2.5)
 
-        log(f"  ✓ Enviado a {username}")
+        log(f"  📤 Enviado a: {', '.join(usernames)}")
         _close_chrome()
-        return True
+        return results
 
     except Exception as e:
-        log(f"  ✗ Error inesperado con {username}: {e}")
+        log(f"  ✗ Error: {e}")
         _close_chrome()
-        return False
+        return results
 
 
 def ejecutar_envios(plan, chrome_profile_path, profile_name, coord_profile,
@@ -121,22 +127,25 @@ def ejecutar_envios(plan, chrome_profile_path, profile_name, coord_profile,
 
         for item in plan:
             video = item["video"]
-            log(f"\n📹 '{video['label']}' → {', '.join(item['enviar_a'])}")
-            for contacto in item["enviar_a"]:
-                log(f"  Enviando a {contacto}...")
-                ok = _send_to_user(
-                    contacto, video["url"],
-                    chrome_path, chrome_profile_path, profile_name,
-                    coord_profile["coords"], log,
-                )
+            contactos = item["enviar_a"]
+            log(f"\n📹 '{video['label']}' → {', '.join(contactos)}")
+
+            results = _send_video_to_contacts(
+                video["url"], contactos,
+                chrome_path, chrome_profile_path, profile_name,
+                coord_profile["coords"], log,
+            )
+
+            for contacto in contactos:
                 resultados.append({
                     "video_id": video["id"],
                     "url": video["url"],
                     "label": video["label"],
                     "contacto": contacto,
-                    "ok": ok,
+                    "ok": results.get(contacto, False),
                 })
-                _delay(2, 4)
+
+            _delay(2, 4)
 
         log("\n✅ Proceso de envío completado.")
 

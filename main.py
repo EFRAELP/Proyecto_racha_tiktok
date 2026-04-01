@@ -5,6 +5,7 @@ import os
 import uuid
 import sys
 import threading
+import calendar as cal_mod
 from datetime import datetime
 
 from algoritmo import calcular_plan
@@ -163,18 +164,21 @@ class App(tk.Tk):
         self.tab_enviar = ttk.Frame(self.nb)
 
         self.tab_perfiles = ttk.Frame(self.nb)
+        self.tab_historial = ttk.Frame(self.nb)
 
         self.nb.add(self.tab_dash, text="  📊 Dashboard  ")
         self.nb.add(self.tab_bib, text="  📚 Biblioteca  ")
         self.nb.add(self.tab_cont, text="  👥 Contactos  ")
         self.nb.add(self.tab_enviar, text="  🚀 Enviar Hoy  ")
         self.nb.add(self.tab_perfiles, text="  🖥 Perfiles  ")
+        self.nb.add(self.tab_historial, text="  📅 Historial  ")
 
         self._build_dashboard()
         self._build_biblioteca()
         self._build_contactos()
         self._build_enviar()
         self._build_perfiles()
+        self._build_historial()
 
     # ══════════════════════════════════════════════════════════════════════════
     # DASHBOARD
@@ -283,7 +287,7 @@ class App(tk.Tk):
         """Ventana reutilizable para agregar/editar video. Retorna dict o None."""
         win = tk.Toplevel(self)
         win.title(title)
-        win.geometry("500x420")
+        win.geometry("500x480")
         win.configure(bg=BG)
         win.grab_set()
         win.resizable(False, True)
@@ -307,6 +311,10 @@ class App(tk.Tk):
 
         lbl("Enviar a")
         contactos = _leer(CONTACTOS_PATH, [])
+
+        # Botón anclado al fondo — se pack ANTES del área expandible
+        btn_frame = tk.Frame(win, bg=BG)
+        btn_frame.pack(side="bottom", fill="x", pady=10)
 
         cb_outer = tk.Frame(win, bg=BG3, relief="flat")
         cb_outer.pack(padx=20, fill="both", expand=True, pady=(0, 4))
@@ -349,7 +357,7 @@ class App(tk.Tk):
             result["para"] = sel
             win.destroy()
 
-        ttk.Button(win, text="Guardar", command=confirmar).pack(pady=10)
+        ttk.Button(btn_frame, text="Guardar", command=confirmar).pack()
         win.wait_window()
         return result if result else None
 
@@ -627,6 +635,131 @@ class App(tk.Tk):
         ).start()
 
     # ══════════════════════════════════════════════════════════════════════════
+    # HISTORIAL / CALENDARIO
+    # ══════════════════════════════════════════════════════════════════════════
+    def _build_historial(self):
+        f = self.tab_historial
+        now = datetime.now()
+        self._cal_year = now.year
+        self._cal_month = now.month
+
+        # Barra de navegación
+        nav = tk.Frame(f, bg=BG)
+        nav.pack(fill="x", padx=14, pady=(12, 6))
+        ttk.Button(nav, text="◀", style="Secondary.TButton",
+                   command=self._prev_mes).pack(side="left")
+        self.lbl_mes = tk.Label(nav, text="", bg=BG, fg=FG,
+                                font=("Segoe UI", 11, "bold"))
+        self.lbl_mes.pack(side="left", padx=12)
+        ttk.Button(nav, text="▶", style="Secondary.TButton",
+                   command=self._next_mes).pack(side="left")
+        ttk.Button(nav, text="Hoy", style="Secondary.TButton",
+                   command=self._ir_hoy).pack(side="left", padx=8)
+
+        # Grid del calendario
+        self.cal_frame = tk.Frame(f, bg=BG)
+        self.cal_frame.pack(fill="both", expand=True, padx=14, pady=4)
+
+        # Panel de detalle
+        self.lbl_detalle = tk.Label(f, text="Haz click en un día para ver detalles",
+                                    bg=BG2, fg=FG2, font=("Segoe UI", 9),
+                                    anchor="w", padx=12, pady=6)
+        self.lbl_detalle.pack(fill="x", padx=14, pady=(0, 10))
+
+    def _refresh_historial(self):
+        self._draw_calendar()
+
+    def _prev_mes(self):
+        if self._cal_month == 1:
+            self._cal_month, self._cal_year = 12, self._cal_year - 1
+        else:
+            self._cal_month -= 1
+        self._draw_calendar()
+
+    def _next_mes(self):
+        if self._cal_month == 12:
+            self._cal_month, self._cal_year = 1, self._cal_year + 1
+        else:
+            self._cal_month += 1
+        self._draw_calendar()
+
+    def _ir_hoy(self):
+        now = datetime.now()
+        self._cal_year, self._cal_month = now.year, now.month
+        self._draw_calendar()
+
+    def _draw_calendar(self):
+        for w in self.cal_frame.winfo_children():
+            w.destroy()
+
+        MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+                 "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"]
+        self.lbl_mes.config(text=f"{MESES[self._cal_month - 1]} {self._cal_year}")
+
+        # Cargar historial y agrupar por fecha
+        historial = _leer(HISTORIAL_PATH, [])
+        sends_by_date = {}
+        for h in historial:
+            fecha = h.get("fecha", "")[:10]
+            if fecha:
+                sends_by_date.setdefault(fecha, []).append(h.get("enviado_a", ""))
+
+        # Cabecera días
+        DIAS = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"]
+        for i, d in enumerate(DIAS):
+            tk.Label(self.cal_frame, text=d, bg=BG, fg=FG2,
+                     font=("Segoe UI", 8, "bold"), width=8).grid(
+                row=0, column=i, padx=2, pady=(0, 4))
+
+        hoy = datetime.now().strftime("%Y-%m-%d")
+        weeks = cal_mod.monthcalendar(self._cal_year, self._cal_month)
+
+        for week_i, week in enumerate(weeks):
+            for day_i, day in enumerate(week):
+                if day == 0:
+                    tk.Frame(self.cal_frame, bg=BG, width=70, height=52).grid(
+                        row=week_i + 1, column=day_i, padx=2, pady=2)
+                    continue
+
+                date_str = f"{self._cal_year}-{self._cal_month:02d}-{day:02d}"
+                sends = sends_by_date.get(date_str, [])
+                es_hoy = date_str == hoy
+
+                if sends:
+                    bg_c, fg_c = GREEN, "#0d1117"
+                elif es_hoy:
+                    bg_c, fg_c = ACCENT, "white"
+                else:
+                    bg_c, fg_c = BG3, FG2
+
+                cell = tk.Frame(self.cal_frame, bg=bg_c, width=70, height=52,
+                                cursor="hand2" if sends else "")
+                cell.grid(row=week_i + 1, column=day_i, padx=2, pady=2, sticky="nsew")
+                cell.grid_propagate(False)
+
+                tk.Label(cell, text=str(day), bg=bg_c, fg=fg_c,
+                         font=("Segoe UI", 10, "bold")).pack(pady=(6, 0))
+                if sends:
+                    n = len(sends)
+                    tk.Label(cell, text=f"{n} envío{'s' if n > 1 else ''}",
+                             bg=bg_c, fg=fg_c, font=("Segoe UI", 7)).pack()
+
+                if sends:
+                    for widget in [cell] + cell.winfo_children():
+                        widget.bind("<Button-1>",
+                                    lambda e, s=sends, d=date_str: self._mostrar_dia(d, s))
+
+        for i in range(7):
+            self.cal_frame.columnconfigure(i, weight=1)
+
+    def _mostrar_dia(self, fecha, contactos):
+        unicos = sorted(set(contactos))
+        self.lbl_detalle.config(
+            fg=FG,
+            text=f"  {fecha}  —  Enviado a: {', '.join(unicos)}"
+        )
+
+    # ══════════════════════════════════════════════════════════════════════════
     # PERFILES DE COORDENADAS
     # ══════════════════════════════════════════════════════════════════════════
     def _build_perfiles(self):
@@ -898,6 +1031,7 @@ class App(tk.Tk):
         self._refresh_biblioteca()
         self._refresh_contactos()
         self._refresh_perfiles()
+        self._refresh_historial()
 
 
 # ──────────────────────────────────────────────────────────────────────────────
